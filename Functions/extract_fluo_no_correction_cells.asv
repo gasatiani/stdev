@@ -1,0 +1,97 @@
+function [S385total, S405total, fluorophore, lambda, ...
+          res_385_total, res_405_total, residu, ...
+          fluo385_each, fluo405_each] = ...
+    extract_fluo_no_correction_cells(path, file, ...
+    min_wl_fluo, max_wl_fluo, fluorophores_385, fluorophores_405)
+
+    %% ===============================
+    %  Load data
+    % ================================
+    [S385total, S405total, lambda, fluo385_each, fluo405_each] = ...
+        load_fluo(fullfile(path, file), min_wl_fluo, max_wl_fluo);
+
+    %% ===============================
+    %  Fit parameter bounds and options
+    % ================================
+    lb = [0,0,0,0,0,0,494,14,589,9,636,5.5,618,0,0,440,5,0];
+    ub = [1,1000,1000,1000,1000,1000,496,16,591,11,638,7.5,620.5,9,1000,460,15,1000];
+
+    options = optimoptions('lsqcurvefit', ...
+        'MaxFunctionEvaluations', 1e10, ...
+        'FunctionTolerance', 1e-6, ...
+        'MaxIter', 1e8, ...
+        'StepTolerance', 1e-10);
+
+    % models
+    fit_385 = @(x, lambda) fluo_exp_cells(x, fluorophores_385, lambda);
+    fit_405 = @(x, lambda) fluo_exp_cells(x, fluorophores_405, lambda);
+
+    % initial guess
+    x0 = [0.1,0.1,0.1,0.1,0.1,0.1,455,10,590,10,619,6,636,6,0.1,450,10,0.1];
+
+
+    %% ===============================
+    %  Fit the total (mean) spectra 
+    % ================================
+    [res_385_total, residu.fit_385_total] = lsqcurvefit( ...
+        fit_385, x0, lambda, S385total, lb, ub, options);
+
+    [res_405_total, residu.fit_405_total] = lsqcurvefit( ...
+        fit_405, x0, lambda, S405total, lb, ub, options);
+
+    fluorophore.mean.fit_385 = fit_385(res_385_total, lambda);
+    fluorophore.mean.fit_405 = fit_405(res_405_total, lambda);
+
+
+    %% ===============================
+    %  Fit each individual spectrum
+    % ================================
+    N = size(fluo385_each,1);
+    for i = 1:N
+        fprintf('Fitting spectrum %d/%d\n', i, N);
+
+        S385i = fluo385_each(i,:);
+        S405i = fluo405_each(i,:);
+
+        [res385_i, residu385_i] = lsqcurvefit(fit_385, x0, lambda, S385i, lb, ub, options);
+        [res405_i, residu405_i] = lsqcurvefit(fit_405, x0, lambda, S405i, lb, ub, options);
+
+        fluorophore.each(i).coeff_385 = res385_i;
+        fluorophore.each(i).coeff_405 = res405_i;
+        fluorophore.each(i).residual_385 = residu385_i;
+        fluorophore.each(i).residual_405 = residu405_i;
+
+        % fitted full spectra
+        fluorophore.each(i).fit_385 = fit_385(res385_i, lambda);
+        fluorophore.each(i).fit_405 = fit_405(res405_i, lambda);
+
+        %% Individual components (same formula as your original code)
+        fluorophore.each(i).flavine_385 = fit_385([res385_i(1),0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1,0],lambda);
+        fluorophore.each(i).flavine_405 = fit_405([res405_i(1),0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1,0],lambda);
+
+        fluorophore.each(i).water_385 = fit_385([0,0,0,0,0,0,1,1,1,1,1,1,1,1,res385_i(15),1,1,0],lambda);
+        fluorophore.each(i).water_405 = fit_405([0,0,0,0,0,0,1,1,1,1,1,1,1,1,res405_i(15),1,1,0],lambda);
+
+        fluorophore.each(i).NADH_385 = fit_385([0,res385_i(2),0,0,0,0,1,1,1,1,1,1,1,1,0,1,1,0],lambda);
+        fluorophore.each(i).NADH_405 = fit_405([0,res405_i(2),0,0,0,0,1,1,1,1,1,1,1,1,0,1,1,0],lambda);
+
+        fluorophore.each(i).gaussian_385 = fit_385([0,0,res385_i(3),0,0,0,res385_i(7),res385_i(8),1,1,1,1,1,1,0,1,1,0],lambda);
+        fluorophore.each(i).gaussian_405 = fit_405([0,0,res405_i(3),0,0,0,res405_i(7),res405_i(8),1,1,1,1,1,1,0,1,1,0],lambda);
+
+        fluorophore.each(i).lipo_385 = fit_385([0,0,0,res385_i(4),0,0,1,1,res385_i(9),res385_i(10),1,1,1,1,0,1,1,0],lambda);
+        fluorophore.each(i).lipo_405 = fit_405([0,0,0,res405_i(4),0,0,1,1,res405_i(9),res405_i(10),1,1,1,1,0,1,1,0],lambda);
+
+        fluorophore.each(i).PpIX_636_385 = fit_385([0,0,0,0,res385_i(5),0,1,1,1,1,res385_i(11),res385_i(12),1,1,0,1,1,0],lambda);
+        fluorophore.each(i).PpIX_636_405 = fit_405([0,0,0,0,res405_i(5),0,1,1,1,1,res405_i(11),res405_i(12),1,1,0,1,1,0],lambda);
+
+        fluorophore.each(i).PpIX_620_385 = fit_385([0,0,0,0,0,res385_i(6),1,1,1,1,1,1,res385_i(13),res385_i(14),0,1,1,0],lambda);
+        fluorophore.each(i).PpIX_620_405 = fit_405([0,0,0,0,0,res405_i(6),1,1,1,1,1,1,res405_i(13),res405_i(14),0,1,1,0],lambda);
+
+        % FIXED (your original code mistakenly used fit_385 for NADH_bound_405)
+        fluorophore.each(i).NADH_bound_385 = ...
+            fit_385([0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,res385_i(16),res385_i(17),res385_i(18)],lambda);
+
+        fluorophore.each(i).NADH_bound_405 = ...
+            fit_405([0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,res405_i(16),res405_i(17),res405_i(18)],lambda);
+    end
+end

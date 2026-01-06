@@ -1,0 +1,192 @@
+clear all
+close all
+warning('off','all')
+
+
+% Initial parameters
+dataDir='/home/asatiani/Desktop/Thesis/Experiment/optics/';
+min_wl = 430;
+max_wl = 645;
+
+% Select files
+[files, path_selected] = uigetfile('*fluo.mat',...
+   'Sélectionnez un ou plusieurs fichiers', ...
+   'MultiSelect', 'on', dataDir);
+
+% Conversion en cellule si un seul fichier est sélectionné
+if ~iscell(files)
+    files = {files};
+end
+
+% Loading fluorophores
+[FAD385total,FAD405total,lambda]=load_fluo("Reference/flavine_fluo.mat",min_wl,max_wl);
+[NADH385total,NADH405total,lambda_NADH]=load_fluo("Reference/NADH_fluo_4.mat",min_wl,max_wl);
+water='/home/asatiani/Desktop/Thesis/Experiment/optics/cell_cultures_37Degree/PBS_000_fluo.mat';
+[water385total, water405total, lambda_water,Power] = load_fluo(water, min_wl, max_wl);
+
+fluorophores_385 = [FAD385total; NADH385total; water385total];
+fluorophores_405 = [FAD405total; NADH405total; water405total];
+
+num_files = length(files);
+NADH_bound_385_integrals = zeros(num_files, 1);
+NADH_free_385_integrals = zeros(num_files, 1);
+FAD_385_integrals = zeros(num_files, 1);
+PbFMN_385_integrals = zeros(num_files, 1);
+Lipo_385_integrals = zeros(num_files, 1);
+PpIX620_385_integrals = zeros(num_files, 1);
+PpIX636_385_integrals = zeros(num_files, 1);
+
+NADH_bound_405_integrals = zeros(num_files, 1);
+NADH_free_405_integrals = zeros(num_files, 1);
+FAD_405_integrals = zeros(num_files, 1);
+PbFMN_405_integrals = zeros(num_files, 1);
+Lipo_405_integrals = zeros(num_files, 1);
+PpIX620_405_integrals = zeros(num_files, 1);
+PpIX636_405_integrals = zeros(num_files, 1);
+
+file_names = cell(num_files, 1);
+total_integral_385=zeros(num_files,1);
+total_integral_405=zeros(num_files,1);
+
+
+for i = 1:num_files
+    % Extraction du nom du fichier pour l'affichage
+   % Extraction et formatage du nom du fichier
+    [~, filename, ~] = fileparts(files{i});
+    filename = strrep(filename, '_000_fluo', ''); % Supprimer _fluo
+    
+    % Diviser le nom en parties
+    parts = strsplit(filename, '_');
+    % Récupérer la partie principale (A673)
+    % main_name = parts{1};
+    main_name = strjoin(parts([1 2 3]), ':');    
+    % Vérifier s'il y a "high" dans le nom
+    has_high = false;
+    for j = 1:length(parts)
+        if contains(lower(parts{j}), 'high')
+            has_high = true;
+            break;
+        end
+    end
+    
+    % Récupérer le numéro (000, 001, etc.)
+    num_str = '';
+    for j = 1:length(parts)
+        if ~isempty(parts{j}) && all(isstrprop(parts{j}, 'digit'))
+            % Convertir 000 en 0, 001 en 1, etc.
+            num_str = num2str(str2double(parts{j}));
+            break;
+        end
+    end
+    
+    % Construction du nom final
+    if has_high
+        file_names{i} = [main_name ' High D ' num_str];
+    else
+        file_names{i} = [main_name];
+    end
+    
+    % Analyse du fichier
+    [S385total, S405total, fluorophore, ~, ~, ~, ~] = extract_fluo_no_correction_cells(path_selected, files{i}, min_wl, max_wl, fluorophores_385, fluorophores_405);
+    NADH_bound_385_integrals(i) = sum(fluorophore.NADH_bound_385);
+    NADH_free_385_integrals(i) = sum(fluorophore.NADH_385);
+    FAD_385_integrals(i) = sum(fluorophore.flavine_385);
+    PbFMN_385_integrals(i) = sum(fluorophore.gaussian_385);
+    Lipo_385_integrals(i) = sum(fluorophore.lipo_385);
+    PpIX620_385_integrals(i) = sum(fluorophore.PpIX_620_385);
+    PpIX636_385_integrals(i) = sum(fluorophore.PpIX_636_385);
+    
+    NADH_bound_405_integrals(i) = sum(fluorophore.NADH_bound_405);
+    NADH_free_405_integrals(i) = sum(fluorophore.NADH_405);
+    FAD_405_integrals(i) = sum(fluorophore.flavine_405);
+    PbFMN_405_integrals(i) = sum(fluorophore.gaussian_405);
+    Lipo_405_integrals(i) = sum(fluorophore.lipo_405);
+    PpIX620_405_integrals(i) = sum(fluorophore.PpIX_620_405);
+    PpIX636_405_integrals(i) = sum(fluorophore.PpIX_636_405);
+    
+
+    total_integral_385(i)=sum(NADH_bound_385_integrals(i)+...
+        NADH_free_385_integrals(i)+...
+        FAD_385_integrals(i)+...
+        PbFMN_385_integrals(i)+...
+        Lipo_385_integrals(i)+...
+        PpIX620_385_integrals(i)+...
+        PpIX636_385_integrals(i));
+    total_integral_405(i)=sum(NADH_bound_405_integrals(i)+...
+        NADH_free_405_integrals(i)+...
+        FAD_405_integrals(i)+...
+        PbFMN_405_integrals(i)+...
+        Lipo_405_integrals(i)+...
+        PpIX620_405_integrals(i)+...
+        PpIX636_405_integrals(i));
+    
+end
+
+visualize_fluorophore(NADH_bound_385_integrals, NADH_bound_405_integrals, file_names, 'NADH bound');
+visualize_fluorophore(NADH_free_385_integrals, NADH_free_405_integrals, file_names, 'NADH free');
+visualize_fluorophore(FAD_385_integrals, FAD_405_integrals, file_names, 'FAD');
+
+
+% 
+% TO vizualize all fluorophore on one graph for one laser
+figure('Position', [100, 100, 1000, 700]);
+data_385 = [NADH_bound_385_integrals, NADH_free_385_integrals, FAD_385_integrals, PbFMN_385_integrals, Lipo_385_integrals, PpIX620_385_integrals, PpIX636_385_integrals];
+bar(data_385);
+set(gca, 'XTick', 1:num_files, 'XTickLabel', file_names, 'XTickLabelRotation', 45);
+title('All fluorophores - Excitation 385 nm', 'FontSize', 14);
+ylabel('Fluorophore intensity (u.a.)', 'FontSize', 12);
+legend('NADH bound', 'NADH free', 'FAD', 'bound FMN', 'Lipopigments', 'PpIX 620', 'PpIX 636');
+grid on;
+
+figure('Position', [100, 100, 1000, 700]);
+data_405 = [NADH_bound_405_integrals, NADH_free_405_integrals, FAD_405_integrals, PbFMN_405_integrals, Lipo_405_integrals, PpIX620_405_integrals, PpIX636_405_integrals];
+bar(data_405);
+set(gca, 'XTick', 1:num_files, 'XTickLabel', file_names, 'XTickLabelRotation', 45);
+title('All fluorophores - Excitation 405 nm', 'FontSize', 14);
+ylabel('Fluorophore intensity (u.a.)', 'FontSize', 12);
+legend('NADH bound', 'NADH free', 'FAD', 'bound FMN', 'Lipopigments', 'PpIX 620', 'PpIX 636');
+grid on;
+
+
+% Fonction pour visualiser un fluorophore avec les deux lasers (385 nm et 405 nm)
+function visualize_fluorophore(data_385, data_405, file_names, fluorophore_name)
+    figure('Position', [100, 100, 900, 600]);
+    
+    % Créer un groupe de barres pour les deux lasers
+    bar_data = [data_385, data_405];
+    b = bar(bar_data);
+    
+    % Définir des couleurs différentes pour les barres
+    b(1).FaceColor = [0.3, 0.6, 0.9]; % Bleu pour 385 nm
+    b(2).FaceColor = [0.9, 0.4, 0.3]; % Rouge pour 405 nm
+    
+    % Configurer les étiquettes et le titre
+    set(gca, 'XTick', 1:length(data_385), 'XTickLabel', file_names, 'XTickLabelRotation', 45);
+    title(['Comparison of ' fluorophore_name ' for both lasers'], 'FontSize', 14);
+    ylabel('Fluorophore intensity (u.a.)', 'FontSize', 12);
+    legend('Excitation 385 nm', 'Excitation 405 nm');
+    grid on;
+    
+    % Ajouter des étiquettes de valeur au-dessus des barres
+    for i = 1:length(data_385)
+        text(i-0.15, data_385(i), num2str(data_385(i), '%.2e'), ...
+            'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 8);
+        text(i+0.15, data_405(i), num2str(data_405(i), '%.2e'), ...
+            'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 8);
+    end
+end
+
+
+% figure('Name', 'NADH bound (385 nm)', 'Position', [100, 100, 900, 600]);
+% bar(NADH_bound_385_integrals);
+% set(gca, 'XTick', 1:num_files, 'XTickLabel', file_names, 'XTickLabelRotation', 45);
+% title('NADH bound - Excitation 385 nm', 'FontSize', 14);
+% ylabel('Fluorophore intensity (u.a.)', 'FontSize', 12);
+% grid on;
+% 
+% text(1:length(NADH_bound_385_integrals), NADH_bound_385_integrals, num2str(NADH_bound_385_integrals, '%.2e'), ...
+%     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+
+
+
+

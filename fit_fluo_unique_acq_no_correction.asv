@@ -1,0 +1,82 @@
+% %csalear all
+% % close all
+%% ===========================
+% Setup paths and parameters
+%% ===========================
+addpath('experimental_data')
+addpath("theoretical_data")
+addpath('Functions/')
+
+dataDir = '/home/asatiani/Desktop/Thesis/Experiment/optics';
+min_wl_fluo = 420;
+max_wl_fluo = 700;
+
+%% ===========================
+% Select one or more files
+%% ===========================
+[data, path] = uigetfile('*fluo.mat', ...
+   'Select One or More Files', ...
+   'MultiSelect', 'on', dataDir);
+
+% Normalize output → always cell array
+if ischar(data)
+    files = {data};
+else
+    files = data;
+end
+
+%% ===========================
+% Load reference spectra
+%% ===========================
+[FAD385total,FAD405total,~] = load_fluo("Reference/flavine_fluo.mat", min_wl_fluo, max_wl_fluo);
+[NADH385total,NADH405total,~] = load_fluo("Reference/NADH_fluo_4.mat", min_wl_fluo, max_wl_fluo);
+vit_A = "Reference/retinoic_acid_90degres_0_5mg_001_fluo.mat";
+[vit_A_385total, vit_A_405total, ~] = load_fluo(vit_A, min_wl_fluo, max_wl_fluo);
+
+fluorophores_385 = [FAD385total; NADH385total; vit_A_385total];
+fluorophores_405 = [FAD405total; NADH405total; vit_A_405total];
+
+%% ===========================
+% Loop over files
+%% ===========================
+for k = 1:length(files)
+    filename = files{k};
+    disp("Processing file: " + filename);
+
+    % Perform fitting on all spectra in the file
+    [S385total, S405total, fluorophore, lambda, ...
+        res_385, res_405, residu, fluo385_each, fluo405_each] = ...
+        extract_fluo_no_correction_cells(path, filename, ...
+        min_wl_fluo, max_wl_fluo, fluorophores_385, fluorophores_405);
+
+    Nspec = size(fluo385_each,1); % number of spectra in this file
+
+    %% ===========================
+    % Plot each individual spectrum
+    %% ===========================
+    for i = 1:Nspec
+        figure('Name', sprintf('%s — Spectrum %d', filename, i));
+
+        % 385 nm
+        subplot(2,1,1)
+        plot(lambda, fluo385_each(i,:), 'k', 'LineWidth', 1.2); hold on;
+        plot(lambda, fluorophore.each_385{i}, 'r', 'LineWidth', 1.5);
+        grid on
+        title(sprintf('%s — Spectrum %d — 385 nm', filename, i))
+        xlabel('Wavelength (nm)')
+        ylabel('Fluorescence intensity (a.u.)')
+        xlim([min_wl_fluo max_wl_fluo])
+        legend('Experimental','Fit')
+
+        % 405 nm
+        subplot(2,1,2)
+        plot(lambda, fluo405_each(i,:), 'k', 'LineWidth', 1.2); hold on;
+        plot(lambda, fluorophore.each_405{i}, 'b', 'LineWidth', 1.5);
+        grid on
+        title(sprintf('%s — Spectrum %d — 405 nm', filename, i))
+        xlabel('Wavelength (nm)')
+        ylabel('Fluorescence intensity (a.u.)')
+        xlim([min_wl_fluo max_wl_fluo])
+        legend('Experimental','Fit')
+    end
+end
