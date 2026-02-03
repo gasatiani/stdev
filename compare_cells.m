@@ -1,13 +1,18 @@
 %% compare_cells.m
-clear all; close all; warning('off','all');
-
+close all; warning('off','all');
+set(groot, 'defaultTextInterpreter', 'none');
+set(groot, 'defaultAxesTickLabelInterpreter', 'none');
+set(groot, 'defaultLegendInterpreter', 'none');
+addpath("Functions/")
 dataDir = '/home/asatiani/Desktop/Thesis/Experiment/optics/';
+format("shortE")
+
 min_wl = 430; max_wl = 645;
 
 % =======================
 % NORMALIZATION SWITCH
 % =======================
-normalize = 1;     % 1 = normalize by total spectrum integral, 0 = no normalization
+normalize = 0;     % 1 = normalize by total spectrum integral, 0 = no normalization
 
 [files, path_selected] = uigetfile('*fluo.mat','Select one or more .fluo.mat files','MultiSelect','on', dataDir);
 if isequal(files,0)
@@ -36,16 +41,24 @@ file_labels = cell(num_files,1);
 
 % Add label depending on normalization
 if normalize
-    norm_label = ' (normalized)';
+    norm_label = ' for cell cultures at optimal temperature (normalized)';
 else
-    norm_label = '';
+    norm_label = ' for cell cultures at optimal temperature';
 end
 
 for i = 1:num_files
     file = files{i};
     [~, fname, ~] = fileparts(file);
     parts = strsplit(fname, '_');
-    main_name = strjoin(parts([1 2 3]), ':');
+    if contains(fname, "DEAD")
+        fprintf(" _TRUE_ ")
+        main_name = strjoin(parts([4 5 6]), ':');
+    else
+        fprintf(" _FALSE_ ")
+        main_name = strjoin(parts([4 5]), ':');
+
+    end
+
     file_labels{i} = main_name;
 
     % Fit each spectrum in the file
@@ -93,133 +106,9 @@ for i = 1:num_files
     means_405(i,:) = mean(integrals_405,1); stds_405(i,:) = std(integrals_405,0,1);
 end
 
-% %% Plot all fluorophores - 385 nm
-% figure('Position',[100 100 1000 700]); hold on;
-% b = bar(means_385);
-% colors = lines(num_fluor);
-% for k = 1:num_fluor
-%     b(k).FaceColor = colors(k,:);
-%     errorbar(b(k).XEndPoints, means_385(:,k), stds_385(:,k), 'k','linestyle','none');
-% end
-% set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-% ylabel('Fluorescence intensity (a.u.)','Interpreter','none'); 
-% title(['All fluorophores - Excitation 385 nm' norm_label],'Interpreter','none');
-% legend(fields,'Location','bestoutside','Interpreter','none'); grid on;
-% 
-% %% Plot all fluorophores - 405 nm
-% figure('Position',[100 100 1000 700]); hold on;
-% b = bar(means_405);
-% for k = 1:num_fluor
-%     b(k).FaceColor = colors(k,:);
-%     errorbar(b(k).XEndPoints, means_405(:,k), stds_405(:,k), 'k','linestyle','none');
-% end
-% set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-% ylabel('Fluorescence intensity (a.u.)','Interpreter','none'); 
-% title(['All fluorophores - Excitation 405 nm' norm_label],'Interpreter','none');
-% legend(fields,'Location','bestoutside','Interpreter','none'); grid on;
-% 
-% 
-% %% NADH bound comparison (both lasers)
-% figure('Position',[100 100 1000 700]); hold on;
-% data_nadh_bound = [means_385(:,1), means_405(:,1)];
-% stds_nadh_bound = [stds_385(:,1), stds_405(:,1)];
-% b = bar(data_nadh_bound);
-% for k = 1:2
-%     errorbar(b(k).XEndPoints, data_nadh_bound(:,k), stds_nadh_bound(:,k), 'k','linestyle','none');
-% end
-% set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-% ylabel('Fluorescence intensity (a.u.)','Interpreter','none'); 
-% title(['NADH bound comparison 385 vs 405' norm_label],'Interpreter','none'); 
-% legend({'NADH bound 385','NADH bound 405'},'Interpreter','none'); grid on;
-% 
-% 
-% %% NADH comparison (both lasers)
-% figure('Position',[100 100 1000 700]); hold on;
-% data_nadh = [means_385(:,2), means_405(:,2)];
-% stds_nadh = [stds_385(:,2), stds_405(:,2)];
-% b = bar(data_nadh);
-% for k = 1:2
-%     errorbar(b(k).XEndPoints, data_nadh(:,k), stds_nadh(:,k), 'k','linestyle','none');
-% end
-% set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-% ylabel('Fluorescence intensity (a.u.)','Interpreter','none'); 
-% title(['NADH free comparison 385 vs 405' norm_label],'Interpreter','none'); 
-% legend({'NADH 385','NADH 405'},'Interpreter','none'); grid on;
-% 
-% %% FAD comparison (both lasers)
-% figure('Position',[100 100 1000 700]); hold on;
-% data_fad = [means_385(:,3), means_405(:,3)];
-% stds_fad = [stds_385(:,3), stds_405(:,3)];
-% b = bar(data_fad);
-% for k = 1:2
-%     errorbar(b(k).XEndPoints, data_fad(:,k), stds_fad(:,k), 'k','linestyle','none');
-% end
-% set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-% ylabel('Fluorescence intensity (a.u.)','Interpreter','none'); 
-% title(['FAD comparison 385 vs 405' norm_label],'Interpreter','none'); 
-% legend({'FAD 385','FAD 405'},'Interpreter','none'); grid on;
-% 
-% 
-% %% Lipopigment comparison (both lasers)
-% 
-% figure('Position',[100 100 1000 700]); hold on;
-% data_lipo = [means_385(:,5), means_405(:,5)];
-% stds_lipo = [stds_385(:,5), stds_405(:,5)];
-% b = bar(data_lipo);
-% for k = 1:2
-%     errorbar(b(k).XEndPoints, data_lipo(:,k), stds_lipo(:,k), 'k','linestyle','none');
-% end
-% set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-% ylabel('Fluorescence intensity (a.u.)','Interpreter','none'); 
-% title(['Lipopigments comparison 385 vs 405' norm_label],'Interpreter','none'); 
-% legend({'Lipopigments 385','Lipopigments 405'},'Interpreter','none'); grid on;
-% 
-% %% PbFMN (bound FMN) comparison (both lasers)
-% figure('Position',[100 100 1000 700]); hold on;
-% data_fmn = [means_385(:,4), means_405(:,4)];
-% stds_fmn = [stds_385(:,4), stds_405(:,4)];
-% b = bar(data_fmn);
-% for k = 1:2
-%     errorbar(b(k).XEndPoints, data_fmn(:,k), stds_fmn(:,k), 'k','linestyle','none');
-% end
-% set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-% ylabel('Fluorescence intensity (a.u.)','Interpreter','none'); 
-% title(['PbFMN comparison 385 vs 405' norm_label],'Interpreter','none'); 
-% legend({'PbFMN 385','PbFMN 405'},'Interpreter','none'); grid on;
-% 
-% 
-% %% PpIX 620 comparison (both lasers)
-% figure('Position',[100 100 1000 700]); hold on;
-% data_ppix620 = [means_385(:,6), means_405(:,6)];
-% stds_ppix620 = [stds_385(:,6), stds_405(:,6)];
-% b = bar(data_ppix620);
-% for k = 1:2
-%     errorbar(b(k).XEndPoints, data_ppix620(:,k), stds_ppix620(:,k), 'k','linestyle','none');
-% end
-% set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-% ylabel('Fluorescence intensity (a.u.)','Interpreter','none'); 
-% title(['PpIX 620 comparison 385 vs 405' norm_label],'Interpreter','none'); 
-% legend({'PpIX 620 385','PpIX 620 405'},'Interpreter','none'); grid on;
-% 
-% 
-% 
-% 
-% 
-% %% PpIX 636 comparison (both lasers)
-% figure('Position',[100 100 1000 700]); hold on;
-% data_ppix636 = [means_385(:,7), means_405(:,7)];
-% stds_ppix636 = [stds_385(:,7), stds_405(:,7)];
-% b = bar(data_ppix636);
-% for k = 1:2
-%     errorbar(b(k).XEndPoints, data_ppix636(:,k), stds_ppix636(:,k), 'k','linestyle','none');
-% end
-% set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-% ylabel('Fluorescence intensity (a.u.)','Interpreter','none'); 
-% title(['PpIX 636 comparison 385 vs 405' norm_label],'Interpreter','none'); 
-% legend({'PpIX 636 385','PpIX 636 405'},'Interpreter','none'); grid on;
-% 
+
 %% Select directory for saving figures
-save_dir = uigetdir(pwd, 'Select folder to save the generated figures');
+save_dir = uigetdir('/home/asatiani/Desktop/Thesis/Figures', 'Select folder to save the generated figures');
 if save_dir == 0
     error('No folder selected. Aborting figure saving.');
 end
@@ -241,15 +130,18 @@ fluor_names = { ...
 num_fluor = numel(fluor_names);
 
 for f = 1:num_fluor
-    
     % Data for this fluorophore
     data_f = [means_385(:,f), means_405(:,f)];
     stds_f = [stds_385(:,f), stds_405(:,f)];
     
     % Create figure
     figure('Position',[100 100 1000 700]); hold on;
-    b = bar(data_f);
-    
+    b = bar(data_f);  
+    annotation('doublearrow', [0.12,0.68], [0.91,0.91],Color='r');
+    text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r')
+
+    % annotation('textarrow', [0.9,0.8], [0.4, 0.4], 'String',"Killed by heat",Color='r')
+
     for k = 1:2
         errorbar(b(k).XEndPoints, data_f(:,k), stds_f(:,k), ...
                  'k', 'linestyle','none');
@@ -259,13 +151,18 @@ for f = 1:num_fluor
             'XTickLabel', file_labels, ...
             'XTickLabelRotation', 45);
     
+
     ylabel('Fluorescence intensity (a.u.)', 'Interpreter','none'); 
     title([fluor_names{f} ' comparison 385 vs 405' norm_label], ...
           'Interpreter','none');
     
     legend({[fluor_names{f} ' 385'], [fluor_names{f} ' 405']}, ...
            'Interpreter','none', 'Location','bestoutside');
-    
+    ax = gca;
+    x_norm = ax.Position(1) + (ax.XTick(end)-ax.XLim(1))/diff(ax.XLim)*ax.Position(3);
+    y_norm = ax.Position(2);  % at bottom, pointing at XTick
+    annotation('textarrow', [x_norm+0.15, x_norm-0.01], [y_norm-0.06, y_norm-0.06], ...
+               'String', "Killed by heat", 'Color', 'r');
     grid on;
     
     % Auto filename
@@ -274,6 +171,9 @@ for f = 1:num_fluor
     
     % Save
     saveas(gcf, fullfile(save_dir, filename));
+
+    pause(0.01);
+    
 end
 
 
@@ -291,11 +191,21 @@ for k = 1:num_fluor
              'k','linestyle','none');
 end
 set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
+annotation('doublearrow', [0.12,0.68], [0.91,0.91],Color='r');
+text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r')
+
 ylabel('Fluorescence intensity (a.u.)');
 title(['All fluorophores - 385 nm' norm_label]);
 legend(fluor_names, 'Location','bestoutside');
+ax = gca;
+x_norm = ax.Position(1) + (ax.XTick(end)-ax.XLim(1))/diff(ax.XLim)*ax.Position(3);
+y_norm = ax.Position(2);  % at bottom, pointing at XTick
+annotation('textarrow', [x_norm+0.15, x_norm-0.01], [y_norm-0.06, y_norm-0.06], ...
+           'String', "Killed by heat", 'Color', 'r');
 grid on;
-saveas(gcf, fullfile(save_dir, ['AllFluorophores_385' norm_label '.png']));
+filename=['AllFluorophores_385' norm_label '.png'];
+filename = strrep(filename, ' ', '_');  % clean names
+saveas(gcf, fullfile(save_dir, filename));
 
 % 405 nm full plot
 figure('Position',[100 100 1000 700]); hold on;
@@ -306,10 +216,21 @@ for k = 1:num_fluor
              'k','linestyle','none');
 end
 set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
+
+annotation('doublearrow', [0.12,0.68], [0.91,0.91],Color='r');
+text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r')
+    
 ylabel('Fluorescence intensity (a.u.)');
 title(['All fluorophores - 405 nm' norm_label]);
 legend(fluor_names, 'Location','bestoutside');
+ax = gca;
+x_norm = ax.Position(1) + (ax.XTick(end)-ax.XLim(1))/diff(ax.XLim)*ax.Position(3);
+y_norm = ax.Position(2);  % at bottom, pointing at XTick
+annotation('textarrow', [x_norm+0.15, x_norm-0.01], [y_norm-0.06, y_norm-0.06], ...
+           'String', "Killed by heat", 'Color', 'r');
 grid on;
-saveas(gcf, fullfile(save_dir, ['AllFluorophores_405' norm_label '.png']));
+filename=['AllFluorophores_405' norm_label '.png'];
+filename = strrep(filename, ' ', '_');  % clean names
+saveas(gcf, fullfile(save_dir, filename));
 
 
