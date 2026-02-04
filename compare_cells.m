@@ -1,3 +1,4 @@
+%% 
 %% compare_cells.m
 close all; warning('off','all');
 set(groot, 'defaultTextInterpreter', 'none');
@@ -37,6 +38,7 @@ num_fluor = length(fields);
 
 means_385 = zeros(num_files, num_fluor); stds_385 = zeros(num_files, num_fluor);
 means_405 = zeros(num_files, num_fluor); stds_405 = zeros(num_files, num_fluor);
+optical_redox_ratios=zeros(num_files, 2); stds_optical_redox_ratios=zeros(num_files, 2);
 file_labels = cell(num_files,1);
 
 % Add label depending on normalization
@@ -51,14 +53,14 @@ for i = 1:num_files
     [~, fname, ~] = fileparts(file);
     parts = strsplit(fname, '_');
     if contains(fname, "DEAD")
-        fprintf(" _TRUE_ ")
+        % fprintf(" _TRUE_ ")
         main_name = strjoin(parts([4 5 6]), ':');
     else
-        fprintf(" _FALSE_ ")
+        % fprintf(" _FALSE_ ")
         main_name = strjoin(parts([4 5]), ':');
 
     end
-
+    
     file_labels{i} = main_name;
 
     % Fit each spectrum in the file
@@ -73,6 +75,7 @@ for i = 1:num_files
 
     integrals_385 = zeros(Nspec, num_fluor);
     integrals_405 = zeros(Nspec, num_fluor);
+   
 
     for s = 1:Nspec
 
@@ -104,6 +107,27 @@ for i = 1:num_files
 
     means_385(i,:) = mean(integrals_385,1); stds_385(i,:) = std(integrals_385,0,1);
     means_405(i,:) = mean(integrals_405,1); stds_405(i,:) = std(integrals_405,0,1);
+    optical_redox_ratios(i,:)=[means_385(i,3)/(means_385(i,2)+means_385(i,3)),...
+                               means_405(i,3)/(means_405(i,2)+means_405(i,3))];
+
+
+    % use the propagation of uncertainty for redox=FAD/(FAD+NADH)
+    % stdev(redox)=|redox/(FAD+NADH)|*sqrt( NADH^2/FAD^2*stdev(FAD)^2+stdev(NADH)^2-2*NADH/FAD*covariance(FAD,NADH) )
+    covariance_NADH_FAD={cov(integrals_385(:,3),integrals_385(:,2)),...
+                         cov(integrals_405(:,3),integrals_405(:,2))}; %cell array of covariance matrices for 385 and 406 nm laser
+  
+    % disp(covariance_NADH_FAD{1}(1,2))
+    % disp(covariance_NADH_FAD{2}(1,2))
+    % 
+    % disp(covariance_NADH_FAD)
+    stds_optical_redox_ratios(i,:)=[abs(optical_redox_ratios(i,1)/((means_385(i,2)+means_385(i,3))))*...
+                                    sqrt((means_385(i,2)^2)/(means_385(i,3)^2)*stds_385(i,3)^2+...
+                                    stds_385(i,2)^2-...
+                                    2*means_385(i,2)/means_385(i,3)*covariance_NADH_FAD{1}(1,2)),...
+                                    abs(optical_redox_ratios(i,2)/((means_405(i,2)+means_405(i,3))))*...
+                                    sqrt((means_405(i,2)^2)/(means_405(i,3)^2)*stds_405(i,3)^2+...
+                                    stds_405(i,2)^2-...
+                                    2*means_405(i,2)/means_405(i,3)*covariance_NADH_FAD{2}(1,2))];
 end
 
 
@@ -137,10 +161,6 @@ for f = 1:num_fluor
     % Create figure
     figure('Position',[100 100 1000 700]); hold on;
     b = bar(data_f);  
-    annotation('doublearrow', [0.12,0.68], [0.91,0.91],Color='r');
-    text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r')
-
-    % annotation('textarrow', [0.9,0.8], [0.4, 0.4], 'String',"Killed by heat",Color='r')
 
     for k = 1:2
         errorbar(b(k).XEndPoints, data_f(:,k), stds_f(:,k), ...
@@ -159,6 +179,9 @@ for f = 1:num_fluor
     legend({[fluor_names{f} ' 385'], [fluor_names{f} ' 405']}, ...
            'Interpreter','none', 'Location','bestoutside');
     ax = gca;
+    annotation('doublearrow', [ax.Position(1),0.68], [0.91,0.91],Color='r');
+    text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r')
+
     x_norm = ax.Position(1) + (ax.XTick(end)-ax.XLim(1))/diff(ax.XLim)*ax.Position(3);
     y_norm = ax.Position(2);  % at bottom, pointing at XTick
     annotation('textarrow', [x_norm+0.15, x_norm-0.01], [y_norm-0.06, y_norm-0.06], ...
@@ -178,7 +201,7 @@ end
 
 
 %% ----------------------------------------------
-%  ADDITIONAL PLOTS: All fluorophores 385 + 405
+%  ADDITIONAL PLOTS: All fluorophores 385 + 405 
 % ----------------------------------------------
 
 % 385 nm full plot
@@ -191,8 +214,6 @@ for k = 1:num_fluor
              'k','linestyle','none');
 end
 set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
-annotation('doublearrow', [0.12,0.68], [0.91,0.91],Color='r');
-text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r')
 
 ylabel('Fluorescence intensity (a.u.)');
 title(['All fluorophores - 385 nm' norm_label]);
@@ -202,6 +223,8 @@ x_norm = ax.Position(1) + (ax.XTick(end)-ax.XLim(1))/diff(ax.XLim)*ax.Position(3
 y_norm = ax.Position(2);  % at bottom, pointing at XTick
 annotation('textarrow', [x_norm+0.15, x_norm-0.01], [y_norm-0.06, y_norm-0.06], ...
            'String', "Killed by heat", 'Color', 'r');
+annotation('doublearrow', [ax.Position(1),0.68], [0.91,0.91],Color='r');
+text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r');
 grid on;
 filename=['AllFluorophores_385' norm_label '.png'];
 filename = strrep(filename, ' ', '_');  % clean names
@@ -217,20 +240,76 @@ for k = 1:num_fluor
 end
 set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
 
-annotation('doublearrow', [0.12,0.68], [0.91,0.91],Color='r');
-text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r')
     
 ylabel('Fluorescence intensity (a.u.)');
 title(['All fluorophores - 405 nm' norm_label]);
 legend(fluor_names, 'Location','bestoutside');
 ax = gca;
+
+
 x_norm = ax.Position(1) + (ax.XTick(end)-ax.XLim(1))/diff(ax.XLim)*ax.Position(3);
 y_norm = ax.Position(2);  % at bottom, pointing at XTick
 annotation('textarrow', [x_norm+0.15, x_norm-0.01], [y_norm-0.06, y_norm-0.06], ...
            'String', "Killed by heat", 'Color', 'r');
+annotation('doublearrow', [ax.Position(1),0.68], [0.91,0.91],Color='r');
+text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r');
+
 grid on;
 filename=['AllFluorophores_405' norm_label '.png'];
 filename = strrep(filename, ' ', '_');  % clean names
 saveas(gcf, fullfile(save_dir, filename));
 
 
+%% ----------------------------------------------
+%  ADDITIONAL PLOTS: Optical redox ratios
+% ----------------------------------------------
+
+% 385 nm optical redox ratio
+figure('Position',[100 100 1000 700]); hold on;
+b = bar(optical_redox_ratios(:,1));
+colors = lines(1);
+b(1).FaceColor = colors(1,:);
+errorbar(b(1).XEndPoints, optical_redox_ratios(:,1), stds_optical_redox_ratios(:,1), ...
+         'k','linestyle','none');
+set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
+
+
+ylabel('Redox ratio of FAD/(NADH+FAD)');
+title(['Optical redox ratio - 385 nm' norm_label]);
+ax = gca;
+x_norm = ax.Position(1) + (ax.XTick(end)-ax.XLim(1))/diff(ax.XLim)*ax.Position(3);
+y_norm = ax.Position(2);  % at bottom, pointing at XTick
+annotation('textarrow', [x_norm+0.15, x_norm-0.01], [y_norm-0.06, y_norm-0.06], ...
+           'String', "Killed by heat", 'Color', 'r');
+annotation('doublearrow', [ax.Position(1),0.75], [0.91,0.91],Color='r');
+text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r')
+grid on;
+filename=['Optical_redox_ratio_385' norm_label '.png'];
+filename = strrep(filename, ' ', '_');  % clean names
+saveas(gcf, fullfile(save_dir, filename));
+
+% 405 nm full plot
+figure('Position',[100 100 1000 700]); hold on;
+b = bar(optical_redox_ratios(:,2));
+b(1).FaceColor = colors(1,:);
+errorbar(b(1).XEndPoints, optical_redox_ratios(:,2), stds_optical_redox_ratios(:,2), ...
+         'k','linestyle','none');
+set(gca,'XTick',1:num_files,'XTickLabel',file_labels,'XTickLabelRotation',45);
+
+    
+ylabel('Redox ratio of FAD/(NADH+FAD)');
+title(['Optical redox ratio - 405 nm' norm_label]);
+ax = gca;
+x_norm = ax.Position(1) + (ax.XTick(end)-ax.XLim(1))/diff(ax.XLim)*ax.Position(3);
+y_norm = ax.Position(2);  % at bottom, pointing at XTick
+
+
+annotation('doublearrow', [ax.Position(1),0.75], [0.91,0.91],Color='r');
+annotation('textarrow', [x_norm+0.15, x_norm-0.01], [y_norm-0.06, y_norm-0.06], ...
+           'String', "Killed by heat", 'Color', 'r');
+text(0.35,0.95,"Kept at optimal temperature", Units="normalized", HorizontalAlignment='center', Color='r')
+
+grid on;
+filename=['Optical_redox_ratio_405' norm_label '.png'];
+filename = strrep(filename, ' ', '_');  % clean names
+saveas(gcf, fullfile(save_dir, filename));
